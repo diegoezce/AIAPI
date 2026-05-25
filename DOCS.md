@@ -217,6 +217,119 @@ Para tareas simples como clasificación, `gemma3:1b` o `gemma3:4b` son suficient
 
 ---
 
+## Integración en otros proyectos
+
+### JavaScript / Fetch (browser o Node.js)
+
+```js
+const response = await fetch("https://tu-url.trycloudflare.com/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": "tu-clave-secreta",
+  },
+  body: JSON.stringify({
+    message: "I cannot log into the app",
+    system: "Classify into appointment, billing, technical, other. Respond ONLY valid JSON.",
+    model: "gemma3:4b",
+  }),
+});
+
+const data = await response.json();
+console.log(data.message); // {"category":"technical"}
+```
+
+### JavaScript — Streaming (para chat en tiempo real)
+
+```js
+const response = await fetch("https://tu-url.trycloudflare.com/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "X-API-Key": "tu-clave-secreta",
+  },
+  body: JSON.stringify({
+    message: "Explica qué es una API",
+    stream: true,
+  }),
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  const lines = decoder.decode(value).split("\n");
+  for (const line of lines) {
+    if (line.startsWith("data: ")) {
+      const chunk = JSON.parse(line.slice(6));
+      process.stdout.write(chunk.token); // escribe token a token
+      if (chunk.done) break;
+    }
+  }
+}
+```
+
+### Python (requests)
+
+```python
+import requests
+
+API_URL = "https://tu-url.trycloudflare.com"
+API_KEY = "tu-clave-secreta"
+HEADERS = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
+
+# Chat simple
+resp = requests.post(f"{API_URL}/chat", headers=HEADERS, json={
+    "message": "I cannot log into the app",
+    "system": "Classify into appointment, billing, technical, other. Respond ONLY valid JSON.",
+    "model": "gemma3:4b",
+})
+print(resp.json()["message"])  # {"category":"technical"}
+```
+
+### Python — Conversación multi-turno
+
+```python
+history = []
+
+def chat(user_message: str) -> str:
+    history.append({"role": "user", "content": user_message})
+    resp = requests.post(f"{API_URL}/chat/conversation", headers=HEADERS, json={
+        "messages": history,
+        "model": "gemma3:4b",
+    })
+    reply = resp.json()["message"]
+    history.append({"role": "assistant", "content": reply})
+    return reply
+
+print(chat("Hola, me llamo Diego"))
+print(chat("¿Cómo me llamo?"))
+```
+
+### PHP (curl)
+
+```php
+$response = file_get_contents("https://tu-url.trycloudflare.com/chat", false,
+  stream_context_create([
+    "http" => [
+      "method"  => "POST",
+      "header"  => "Content-Type: application/json\r\nX-API-Key: tu-clave-secreta",
+      "content" => json_encode([
+        "message" => "I cannot log into the app",
+        "model"   => "gemma3:4b",
+      ]),
+    ],
+  ])
+);
+$data = json_decode($response, true);
+echo $data["message"];
+```
+
+---
+
 ## Estructura del proyecto
 
 ```
